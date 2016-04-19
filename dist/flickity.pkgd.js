@@ -4670,7 +4670,7 @@ return Flickity;
   }
 
 }( window, function factory( window, classie, eventie, Flickity, utils ) {
-'use strict';
+
 
 Flickity.createMethods.push('_createLazyload');
 
@@ -4702,12 +4702,13 @@ Flickity.prototype.lazyLoad = function() {
 
 function getCellLazyImages( cellElem ) {
   // check if cell element is lazy image
-  if ( cellElem.nodeName == 'IMG' &&
-    cellElem.getAttribute('data-flickity-lazyload') ) {
+  if ( cellElem.getAttribute('data-flickity-lazyload') ) {
     return [ cellElem ];
   }
+
   // select lazy images in cell
-  var imgs = cellElem.querySelectorAll('img[data-flickity-lazyload]');
+  var imgs = cellElem.querySelectorAll('[data-flickity-lazyload]');
+
   return utils.makeArray( imgs );
 }
 
@@ -4727,8 +4728,16 @@ LazyLoader.prototype.handleEvent = utils.handleEvent;
 LazyLoader.prototype.load = function() {
   eventie.bind( this.img, 'load', this );
   eventie.bind( this.img, 'error', this );
+
   // load image
-  this.img.src = this.img.getAttribute('data-flickity-lazyload');
+  var imgSrc = this.img.getAttribute('data-flickity-lazyload');
+
+  if(this.img.nodeName == 'IMG') {
+    this.img.src = imgSrc;
+  } else {
+    this.img.style.backgroundImage = 'url("' + imgSrc + '")';
+  }
+
   // remove attr
   this.img.removeAttribute('data-flickity-lazyload');
 };
@@ -5367,7 +5376,7 @@ function makeArray( obj ) {
   }
 
 }( window, function factory( window, Flickity, imagesLoaded ) {
-'use strict';
+
 
 Flickity.createMethods.push('_createImagesLoaded');
 
