@@ -1,5 +1,5 @@
 /*!
- * Flickity PACKAGED v1.2.1
+ * Flickity PACKAGED v1.2.2
  * Touch, responsive, flickable galleries
  *
  * Licensed GPLv3 for open source use
@@ -4726,15 +4726,18 @@ function LazyLoader( img, flickity ) {
 LazyLoader.prototype.handleEvent = utils.handleEvent;
 
 LazyLoader.prototype.load = function() {
-  eventie.bind( this.img, 'load', this );
-  eventie.bind( this.img, 'error', this );
-
   // load image
   var imgSrc = this.img.getAttribute('data-flickity-lazyload');
 
   if(this.img.nodeName == 'IMG') {
+    eventie.bind( this.img, 'load', this );
+    eventie.bind( this.img, 'error', this );
     this.img.src = imgSrc;
   } else {
+    var bg = new Image();
+    eventie.bind( bg, 'load', this );
+    eventie.bind( bg, 'error', this );
+    bg.src = imgSrc;
     this.img.style.backgroundImage = 'url("' + imgSrc + '")';
   }
 
@@ -4772,7 +4775,7 @@ return Flickity;
 }));
 
 /*!
- * Flickity v1.2.1
+ * Flickity v1.2.2
  * Touch, responsive, flickable galleries
  *
  * Licensed GPLv3 for open source use

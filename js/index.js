@@ -1,5 +1,5 @@
 /*!
- * Flickity v1.2.2
+ * Flickity v1.2.3
  * Touch, responsive, flickable galleries
  *
  * Licensed GPLv3 for open source use
