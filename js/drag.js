@@ -51,8 +51,7 @@ function preventDefaultEvent( event ) {
 // ----- defaults ----- //
 
 utils.extend( Flickity.defaults, {
-  draggable: true,
-  touchVerticalScroll: true
+  draggable: true
 });
 
 // ----- create ----- //
@@ -103,6 +102,14 @@ Flickity.prototype._childUIPointerDownDrag = function( event ) {
 // -------------------------- pointer events -------------------------- //
 
 Flickity.prototype.pointerDown = function( event, pointer ) {
+  // dismiss range sliders
+  if ( event.target.nodeName == 'INPUT' && event.target.type == 'range' ) {
+    // reset pointerDown logic
+    this.isPointerDown = false;
+    delete this.pointerIdentifier;
+    return;
+  }
+
   this._dragPointerDown( event, pointer );
 
   // kludge to blur focused inputs in dragger
@@ -118,6 +125,10 @@ Flickity.prototype.pointerDown = function( event, pointer ) {
   classie.add( this.viewport, 'is-pointer-down' );
   // bind move and end events
   this._bindPostStartEvents( event );
+  // track scrolling
+  this.pointerDownScroll = Unidragger.getScrollPosition();
+  eventie.bind( window, 'scroll', this );
+
   this.dispatchEvent( 'pointerDown', event, [ pointer ] );
 };
 
@@ -133,67 +144,35 @@ var focusNodes = {
 
 Flickity.prototype.pointerDownFocus = function( event ) {
   // focus element, if not touch, and its not an input or select
-  if ( this.options.accessibility && !touchStartEvents[ event.type ] &&
-      !focusNodes[ event.target.nodeName ] ) {
-    this.element.focus();
+  if ( !this.options.accessibility || touchStartEvents[ event.type ] ||
+      focusNodes[ event.target.nodeName ] ) {
+    return;
+  }
+  var prevScrollY = window.pageYOffset;
+  this.element.focus();
+  // hack to fix scroll jump after focus, #76
+  if ( window.pageYOffset != prevScrollY ) {
+    window.scrollTo( window.pageXOffset, prevScrollY );
   }
 };
 
 // ----- move ----- //
 
-Flickity.prototype.pointerMove = function( event, pointer ) {
-  var moveVector = this._dragPointerMove( event, pointer );
-  this.touchVerticalScrollMove( event, pointer, moveVector );
-  this._dragMove( event, pointer, moveVector );
-  this.dispatchEvent( 'pointerMove', event, [ pointer, moveVector ] );
-};
-
 Flickity.prototype.hasDragStarted = function( moveVector ) {
-  return !this.isTouchScrolling && Math.abs( moveVector.x ) > 3;
+  return Math.abs( moveVector.x ) > 3;
 };
 
 // ----- up ----- //
 
 Flickity.prototype.pointerUp = function( event, pointer ) {
-  delete this.isTouchScrolling;
   classie.remove( this.viewport, 'is-pointer-down' );
   this.dispatchEvent( 'pointerUp', event, [ pointer ] );
   this._dragPointerUp( event, pointer );
 };
 
-// -------------------------- vertical scroll -------------------------- //
-
-var touchScrollEvents = {
-  // move events
-  // mousemove: true,
-  touchmove: true,
-  MSPointerMove: true
-};
-
-// position of pointer, relative to window
-function getPointerWindowY( pointer ) {
-  var pointerPoint = Unidragger.getPointerPoint( pointer );
-  return pointerPoint.y - window.pageYOffset;
-}
-
-Flickity.prototype.touchVerticalScrollMove = function( event, pointer, moveVector ) {
-  // do not scroll if already dragging, if disabled
-  var touchVerticalScroll = this.options.touchVerticalScroll;
-  // if touchVerticalScroll is 'withDrag', allow scrolling and dragging
-  var canNotScroll = touchVerticalScroll == 'withDrag' ? !touchVerticalScroll :
-    this.isDragging || !touchVerticalScroll;
-  if ( canNotScroll || !touchScrollEvents[ event.type ] ) {
-    return;
-  }
-  // don't start vertical scrolling until pointer has moved 10 pixels in a direction
-  if ( !this.isTouchScrolling && Math.abs( moveVector.y ) > 10 ) {
-    // start touch vertical scrolling
-    // scroll & pointerY when started
-    this.startScrollY = window.pageYOffset;
-    this.pointerWindowStartY = getPointerWindowY( pointer );
-    // start scroll animation
-    this.isTouchScrolling = true;
-  }
+Flickity.prototype.pointerDone = function() {
+  eventie.unbind( window, 'scroll', this );
+  delete this.pointerDownScroll;
 };
 
 // -------------------------- dragging -------------------------- //
@@ -237,7 +216,7 @@ Flickity.prototype.dragEnd = function( event, pointer ) {
     // if free-scroll & not wrap around
     // do not free-scroll if going outside of bounding cells
     // so bounding cells can attract slider, and keep it in bounds
-    var restingX = this.getRestingDragPosition();
+    var restingX = this.getRestingPosition();
     this.isFreeScrolling = -restingX > this.cells[0].target &&
       -restingX < this.getLastCell().target;
   } else if ( !this.options.freeScroll && index == this.selectedIndex ) {
@@ -252,7 +231,7 @@ Flickity.prototype.dragEnd = function( event, pointer ) {
 };
 
 Flickity.prototype.dragEndRestingSelect = function() {
-  var restingX = this.getRestingDragPosition();
+  var restingX = this.getRestingPosition();
   // how far away from selected cell
   var distance = Math.abs( this.getCellDistance( -restingX, this.selectedIndex ) );
   // get closet resting going up and going down
@@ -262,11 +241,6 @@ Flickity.prototype.dragEndRestingSelect = function() {
   var index = positiveResting.distance < negativeResting.distance ?
     positiveResting.index : negativeResting.index;
   return index;
-};
-
-Flickity.prototype.getRestingDragPosition = function() {
-  var dragVelocity = this.dragX - this.x;
-  return this.x + dragVelocity / ( 1 - this.getFrictionFactor() );
 };
 
 /**
